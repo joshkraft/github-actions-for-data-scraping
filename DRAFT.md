@@ -51,3 +51,123 @@ As an example, I will walk through a simple data project I am currently working 
 
 > It should be noted that there are limitations to what Github Actions can be used for, especially while staying in the free tier. You should consult the [official documentation](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration) when deciding if this platform is right for your project. 
 
+Before beginning, you must gain access to the Twitter API by signing up for the [Twitter Developer Platform](https://developer.twitter.com/en/docs/twitter-api). Once you have been accepted, create an Application with Read/Write access, and make sure to securely store your Consumer Key, Consumer Secret, Access Token, and Access Token Secret. 
+
+There are three main files that make this project work:
+
+1. **scrape.py**
+   1. This Python script performs the actual data collection.
+2. **workflow.yml**
+   1. This file defines our main Github action, and orchestrates the running of scrape.py
+3. **decrypt_secret.sh**
+   1. This file is referenced by workflow.yml, and is used to securely decrypt the API credentials used to access Twitter.
+
+## scrape.py
+
+The main function of this script can be seen here:
+
+```python
+def main():
+    api = authenticate_with_secrets('/home/runner/secrets/secrets.json')
+    usernames = ["realDonaldTrump", "JoeBiden"]
+
+    last_tweet_ids = get_last_tweet_ids()
+
+    for user in usernames:
+        file_path = "data/" + user + "/data.csv"
+        processed_tweets = []
+        tweets = get_tweets_from_user(api, user, last_tweet_ids)
+        if tweets:
+            for tweet in tweets:
+                processed_tweet = process_raw_tweet(tweet)
+                processed_tweets.append(processed_tweet)
+            upload_tweets(processed_tweets, file_path)
+    update_last_tweet_ids(last_tweet_ids)
+```
+
+This program can be broken down into the following steps:
+
+1. Authenticate with Twitter API.
+
+2. Specify which accounts to collect tweets from.
+
+3. See if we have a Tweet ID to use as a starting point.
+
+4. Grab tweets from each account, proccess them, and then append them to a CSV file.
+
+5. Update the Tweet IDs from Step 3.
+
+   
+
+### Authenticate with Twitter API
+
+The following  function can be used to authenticate via Tweepy and access the Twitter API:
+
+```python
+import tweepy 
+
+def authenticate_with_secrets(secret_filepath):
+    secret_file = open(secret_filepath)
+    secret_data = json.load(secret_file)
+    CONSUMER_KEY = secret_data["API_KEY"]
+    CONSUMER_SECRET = secret_data["API_SECRET"]
+    ACCESS_TOKEN = secret_data["ACCESS_TOKEN"]
+    ACCESS_TOKEN_SECRET = secret_data["ACCESS_SECRET"]
+    secret_file.close()
+
+    auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+    api = tweepy.API(auth)
+    
+    return api
+```
+
+
+
+### Specify which accounts to collect tweets from
+
+### See if we have a Tweet ID to use as a starting point
+
+### Grab tweets from each account, proccess them, and then append them to a CSV file
+
+### Update the Tweet IDs from Step 3
+
+
+
+## workflow.yml
+
+## decrypt_secret.sh
+
+
+
+
+
+
+
+
+
+
+
+For now, you can set the `secret_filepath` to whatever you would like. However, it is important to note that this code will eventually be running on a Github server so you will need to update it accordingly once local developement is done.
+
+One important limitation of the Twitter API is the inability to grab a users tweet from more than 7 days ago. As such, I have decided to store the 'most recently retrieved tweet ID' for each user in a separate JSON file. Each hour, we will poll the Twitter API and see if there are any tweets with a more recent ID for that user. If there are, we will grab those tweets and then update the JSON file to reflect the newest ID. In this case, here is what our JSON file would look like:
+
+```json
+{
+  "realDonaldTrump": "1324401527663058944", 
+  "JoeBiden": "1324445128434438145"
+}
+```
+
+To set these IDs, you can visit any tweet from a given user in the past 7 days, and extract it from the end of the URL. For example, a tweet from the @realDonaldTrump account would have the following URL:
+
+https://twitter.com/realDonaldTrump/status/**1324401527663058944**
+
+To open this file, we will define a simple function:
+
+```python
+def get_last_tweet_ids():
+    with open("most_recent_tweet_id.json", "r") as file:
+        return json.load(file)
+```
+
