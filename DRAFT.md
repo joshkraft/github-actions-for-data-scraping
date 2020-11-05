@@ -37,14 +37,17 @@ For more information about the capabilities (and limitations) of Github Actions,
 
 In this case, we can use the scheduling capabilities of Github Actions to run our data collection script on a defined schedule, and let the Github servers handle the collection and pushing of data. 
 
-> **Important Note**: AWS Lambda, Google Cloud Functions, and Github Actions all have both free and paid tiers, and could fill this use case. However, my experience is that Github Actions are a better choice for small scale projects due to the generosity of the free tier, ease of use, and close integration with Github, where a project's code is typically already living.
+> **Note**: AWS Lambda, Google Cloud Functions, and Github Actions all have both free and paid tiers, and could fill this use case. However, my experience is that Github Actions are a better choice for small scale projects due to the generosity of the free tier, ease of use, and close integration with Github, where a project's code is typically already living.
 
-## An Example: Tweeter Profile Scraper
+## An Example: Twitter Profile Scraper
 
-As an example, I will walk through a simple data project I am currently working on. The overall goal of this project is to have an interesting visual way to see the tweets of the two leading candidates in the 2020 US Presidential Election, Donald Trump and Joe Biden. Here are some constraints I have in mind:
+As an example, I will walk through a simple data project I am currently working on. The overall goal of this project is to have an interesting visual way to see the tweets of the two leading candidates in the 2020 US Presidential Election, Donald Trump and Joe Biden. The crucial first step of this project is to start collecting this data. Here are some constraints I decided upon for this project:
 
 - Data must be grabbed from Twitter on a near-real time basis. Tweets from last month are much less relevant than tweets from the last hour.
-- The tweets should be represented in a visually interesting and informative way.
+- The data should be easily accessible to anyone. Due to the small amount of data in this project, we will just store it on Github for the sake of simplicity.
 - The data collection must be completely automated. 
+- Credentials should be securely stored in the cloud.
 - The project should be completely free.
+
+> It should be noted that there are limitations to what Github Actions can be used for, especially while staying in the free tier. You should consult the [official documentation](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration) when deciding if this platform is right for your project. 
 
