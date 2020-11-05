@@ -19,7 +19,7 @@ For many small-scale or exploratory projects, the first two options are often to
 
 Modern Python libraries such as [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) and [Tweepy](https://www.tweepy.org) have lowered the barrier to entry for generating datasets through scraping or APIs. After a brief stroll through the documentation, you can pretty reliably start gathering your own data for future use. 
 
-However, oftentimes data needs to be gathered on a continuous basis. For example, a someone might be interested in gathering tweets about a certain topic on an hourly basis for analysis by stakeholders. The simplest approach would be to simply run their script(s) on a laptop and push the data into a repository somewhere. This would fall under the category of [on-premises approaches](https://en.wikipedia.org/wiki/On-premises_software) - the infrastructure for the project is supplied (and maintained) by the individual/team/company that owns the laptop. While this can be a good starting point for data projects, the dependendence on the availability/reliability of local hardware introduces a large liability into the system.
+However, oftentimes data needs to be gathered on a continuous basis. For example, a someone might be interested in gathering tweets about a certain topic on an hourly basis for analysis by stakeholders. The simplest approach would be to simply run their script(s) on a laptop and push the data into a repository somewhere. This would fall under the category of [on-premises approaches](https://en.wikipedia.org/wiki/On-premises_software) — the infrastructure for the project is supplied (and maintained) by the individual/team/company that owns the laptop. While this can be a good starting point for data projects, the dependence on the availability/reliability of local hardware introduces a large liability into the system.
 
 One way to eliminate this liability is to move the project onto a [cloud-based serverless computing](https://en.wikipedia.org/wiki/Serverless_computing) platform like [AWS Lambda](https://aws.amazon.com/lambda/) or [Google Cloud Functions](https://cloud.google.com/functions/docs/), which can be configured automatically run the script and push the data for a fee. This platforms are very reliable, and are often the best choice for complex data projects.
 
@@ -27,5 +27,24 @@ However, recall that one of the allures of generating your own datasets is the f
 
 ## What are Github Actions?
 
+Github Actions are integrated into Github repositories, and can be used to run small workloads on cloud servers owned, operated, and maintained by Github. Here are a few of the most common use cases for Github Actions:
+
+- Automatically run tests when new code is checked into a repository, before merging it into the overall codebase. This is known as [**Continuous Integration**](https://en.wikipedia.org/wiki/Continuous_integration).
+- Automatically release new code to end users, typically after passing the suite of tests. This is known as [**Continuous Delivery**](https://en.wikipedia.org/wiki/Continuous_delivery). 
+- Scheduled jobs. For example, you might want to aggregate some metrics on changes in a repository and send it to relevant stakeholders.
+
+For more information about the capabilities (and limitations) of Github Actions, I would reccomend checking out the official [Quickstart for GitHub Actions](https://docs.github.com/en/free-pro-team@latest/actions/quickstart). 
+
+In this case, we can use the scheduling capabilities of Github Actions to run our data collection script on a defined schedule, and let the Github servers handle the collection and pushing of data. 
+
+> **Important Note**: AWS Lambda, Google Cloud Functions, and Github Actions all have both free and paid tiers, and could fill this use case. However, my experience is that Github Actions are a better choice for small scale projects due to the generosity of the free tier, ease of use, and close integration with Github, where a project's code is typically already living.
+
 ## An Example: Tweeter Profile Scraper
+
+As an example, I will walk through a simple data project I am currently working on. The overall goal of this project is to have an interesting visual way to see the tweets of the two leading candidates in the 2020 US Presidential Election, Donald Trump and Joe Biden. Here are some constraints I have in mind:
+
+- Data must be grabbed from Twitter on a near-real time basis. Tweets from last month are much less relevant than tweets from the last hour.
+- The tweets should be represented in a visually interesting and informative way.
+- The data collection must be completely automated. 
+- The project should be completely free.
 
