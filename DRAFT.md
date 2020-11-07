@@ -2,6 +2,8 @@
 
 ## Introduction
 
+> **TODO: Make this more focused on data access, not cost.**
+
 A common starting point for any data-driven project is the search for good data. There are a few ways to go about gaining access to data:
 
 | Option                            | Pros/Cons                                                  |
@@ -48,6 +50,7 @@ As an example, I will walk through a simple data project I am currently working 
 - The data collection must be completely automated. 
 - Credentials should be securely stored in the cloud.
 - The project should be completely free.
+  - It should be noted that there are limitations to what Github Actions can be used for, especially while staying in the free tier. You should consult the [official documentation](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration) when deciding if this platform is right for your project. 
 
 > It should be noted that there are limitations to what Github Actions can be used for, especially while staying in the free tier. You should consult the [official documentation](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration) when deciding if this platform is right for your project. 
 
