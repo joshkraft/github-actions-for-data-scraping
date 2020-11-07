@@ -62,21 +62,17 @@ Additionally, here are some constraints I decided upon for this project:
 
 - Data must be grabbed from Twitter on a near-real time basis. Tweets from last month are much less relevant than tweets from the last hour.
 - The data should be easily accessible to anyone. Due to the small amount of data in this project, we will just store it on Github for the sake of simplicity.
-- The data collection must be completely automated. 
 - Credentials should be securely stored in the cloud.
 - The project should be completely free.
-  - It should be noted that there are limitations to what Github Actions can be used for, especially while staying in the free tier. You should consult the [official documentation](https://docs.github.com/en/free-pro-team@latest/actions/reference/usage-limits-billing-and-administration) when deciding if this platform is right for your project. 
 
 Before beginning, you must gain access to the Twitter API by signing up for the [Twitter Developer Platform](https://developer.twitter.com/en/docs/twitter-api). Once you have been accepted, create an Application with Read/Write access, and make sure to securely store your Consumer Key, Consumer Secret, Access Token, and Access Token Secret. 
 
 There are three main files that make this project work:
 
-1. **scrape.py**
-   1. This Python script performs the actual data collection.
-2. **workflow.yml**
-   1. This file defines our main Github action, and orchestrates the running of scrape.py
-3. **decrypt_secret.sh**
-   1. This file is referenced by workflow.yml, and is used to securely decrypt the API credentials used to access Twitter.
+1. **scrape.py**: Python script performs the actual data collection.
+2. **most_recent_tweet_id.json**: Stores the last retrieved Tweet ID for each user.
+3. **workflow.yml**: YML file defining our main Github Action to run scrape.py.
+4. **decrypt_secret.sh**: Shell script used to decrypt the API credentials.
 
 ## scrape.py
 
@@ -103,52 +99,114 @@ def main():
 
 This program can be broken down into the following steps:
 
-1. Authenticate with Twitter API.
+1. **Authenticate with Twitter API.**
 
-2. Specify which accounts to collect tweets from.
+   The following function is used to authenticate to the Twitter API, by opening a file containing API keys and then making a call to `tweepy.API()`:
 
-3. See if we have a Tweet ID to use as a starting point.
-
-4. Grab tweets from each account, proccess them, and then append them to a CSV file.
-
-5. Update the Tweet IDs from Step 3.
+   ```python
+   import tweepy 
+   
+   def authenticate_with_secrets(secret_filepath):
+       secret_file = open(secret_filepath)
+       secret_data = json.load(secret_file)
+       CONSUMER_KEY = secret_data["API_KEY"]
+       CONSUMER_SECRET = secret_data["API_SECRET"]
+       ACCESS_TOKEN = secret_data["ACCESS_TOKEN"]
+       ACCESS_TOKEN_SECRET = secret_data["ACCESS_SECRET"]
+       secret_file.close()
+   
+       auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+       auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+       api = tweepy.API(auth)
+       
+       return api
+   ```
 
    
 
-### Authenticate with Twitter API
+2. **Specify which accounts to collect tweets from.**
 
-The following  function can be used to authenticate via Tweepy and access the Twitter API:
+   This step is pretty self explanatory. I have opted to simply specify the Twitter accounts of interest as a list in our main function:
 
-```python
-import tweepy 
+   ```python
+   usernames = ["realDonaldTrump", "JoeBiden"]
+   ```
 
-def authenticate_with_secrets(secret_filepath):
-    secret_file = open(secret_filepath)
-    secret_data = json.load(secret_file)
-    CONSUMER_KEY = secret_data["API_KEY"]
-    CONSUMER_SECRET = secret_data["API_SECRET"]
-    ACCESS_TOKEN = secret_data["ACCESS_TOKEN"]
-    ACCESS_TOKEN_SECRET = secret_data["ACCESS_SECRET"]
-    secret_file.close()
+3. **Fetch tweets, using existing data a starting point.**
 
-    auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
-    api = tweepy.API(auth)
-    
-    return api
-```
+   As mentioned before, there are limits on the Twitter API that we must adhere to. In order to avoid fetching unnecessary data, we will do the following:
 
+   - Fetch a chunk of tweets from a user.
+   - Grab the id of the most recent tweet in that chunk, and store it in a JSON file.
+   - Next time we fetch tweets for the user, reference this id as a stopping point.
 
+   ```python
+   def get_last_tweet_ids():
+       with open("most_recent_tweet_id.json", "r") as file:
+           return json.load(file)
+           
+   last_tweet_ids = get_last_tweet_ids()
+   
+   def get_tweets_from_user(api, user, last_tweet_ids):
+       if user in last_tweet_ids:
+           most_recent_tweet_id = int(last_tweet_ids[user])
+           tweets = api.user_timeline(user, 
+                                      since_id = most_recent_tweet_id + 1,
+                                      include_rts = False,
+                                      tweet_mode = 'extended')
+       if tweets:
+           last_tweet_ids[user] =  str(tweets[0].id)
+           return tweets
+       else:
+           print('No tweets pulled for ' + user + '. Check recent tweet id.')
+           
+   tweets = get_tweets_from_user(api, user, last_tweet_ids)
+   ```
 
-### Specify which accounts to collect tweets from
+4. **Proccess tweets, and then append them to a CSV file.**
 
-### See if we have a Tweet ID to use as a starting point
+   The following code is used to process the tweets, and write them to a file within our repository:
 
-### Grab tweets from each account, proccess them, and then append them to a CSV file
+   ```python
+   def process_raw_tweet(tweet):
+       processed_tweet = {}
+       processed_tweet['id'] = tweet.id
+       processed_tweet['username'] = tweet.user.screen_name
+       processed_tweet['tweet_text'] = tweet.full_text
+       processed_tweet['retweets'] = tweet.retweet_count
+       processed_tweet['location'] = tweet.user.location
+       processed_tweet['created_at'] = tweet.created_at
+       return processed_tweet
+       
+   def upload_tweets(tweets, file_path):
+       df = pd.DataFrame(tweets)
+       if not os.path.isfile(file_path):
+           return df.to_csv(file_path)
+       else: 
+           return df.to_csv(file_path, mode='a', header=False)
+           
+   if tweets:
+   	for tweet in tweets:
+       processed_tweet = process_raw_tweet(tweet)
+   		processed_tweets.append(processed_tweet)
+     upload_tweets(processed_tweets, file_path)
+   ```
 
-### Update the Tweet IDs from Step 3
+   
 
+5. **Update the 'last tweet ids' file.**
 
+   ```python
+   def update_last_tweet_ids(last_tweet_ids):
+       with open("most_recent_tweet_id.json", "w") as file:
+           json.dump(last_tweet_ids, file)
+           
+   update_last_tweet_ids(last_tweet_ids)
+   ```
+
+   
+
+At this point, we see the overall logic of the program. Two details remain: scheduling the job, and securely accessing the Twitter API.
 
 ## workflow.yml
 
