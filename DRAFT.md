@@ -28,7 +28,7 @@ However, oftentimes data needs to be gathered on a continuous basis. For example
 
 One way to eliminate this liability is to use a [cloud-based serverless computing](https://en.wikipedia.org/wiki/Serverless_computing) platform like [AWS Lambda](https://aws.amazon.com/lambda/) or [Google Cloud Functions](https://cloud.google.com/functions/docs/), which can be configured automatically run scripts and move the data for a fee. This platforms are very reliable, and are often the best choice for complex data projects.
 
-However, recall that one of the allures of generating your own datasets is the fact that it can much cheaper than simply purchasing a dataset. AWS Lambda and Google Cloud functions are great platforms, but are often overkill for small scale projects. In this post, I will propose a workflow that leverages [**Github Actions**](https://docs.github.com/en/free-pro-team@latest/actions) for small scale data collection projects, which **adds the benefits of cloud-based serverless computing without (necessarily) adding cost**.
+However, recall that one of the allures of generating your own datasets is the fact that it can much cheaper than simply purchasing a dataset. AWS Lambda and Google Cloud functions are great platforms, but are often overkill for small scale projects. In this post, I will propose a workflow that leverages [**Github Actions**](https://docs.github.com/en/free-pro-team@latest/actions) for small scale data collection projects, which <u>adds the benefits of cloud-based serverless computing without (necessarily) adding cost</u>.
 
 > **Note**: AWS Lambda, Google Cloud Functions, and Github Actions all have both free and paid tiers, and could fill this use case. However, my experience is that Github Actions are a better choice for small scale projects due to the generosity of the free tier, ease of use, and close integration with Github, where a project's code is typically already living.
 
@@ -36,8 +36,8 @@ However, recall that one of the allures of generating your own datasets is the f
 
 Github Actions are a tool integrated into Github repositories, used to run small workloads on servers owned, operated, and maintained by Github. Here are a few of the most common use cases for Github Actions:
 
-- Automatically run tests when new code is checked into a repository, before merging it into the overall codebase. ([**Continuous Integration**](https://en.wikipedia.org/wiki/Continuous_integration))
-- Automatically release new code to end users, typically after passing the suite of tests. ([**Continuous Delivery**](https://en.wikipedia.org/wiki/Continuous_delivery)) 
+- Automatically run tests when new code is checked into a repository, before merging it into the overall codebase ([Continuous Integration](https://en.wikipedia.org/wiki/Continuous_integration)).
+- Automatically release new code to end users, typically after passing the suite of tests (**[Continuous Delivery](https://en.wikipedia.org/wiki/Continuous_delivery)**).
 - Scheduled jobs. For example, you might want to aggregate some metrics on changes in a repository and send it to relevant parties.
 
 For more information about the capabilities (and limitations) of Github Actions, I would reccomend checking out the official [Quickstart for GitHub Actions](https://docs.github.com/en/free-pro-team@latest/actions/quickstart). 
@@ -50,20 +50,20 @@ In this case, we can use the scheduling capabilities of Github Actions to run ou
 
 As an example, I will walk through a simple data project I am currently working on. The overall goal of this project is to have an interesting visual way to see the tweets of the two main candidates in the 2020 US Presidential Election, Donald Trump and Joe Biden. 
 
-While Twitter does have a freely accessible API, there are limitations that you must adhere to. Due to the volume of data on the platform, you cannot make a request like this:
+The first step in this project is to start collecting the tweets in a repository for later use. Here are some constraints I decided upon for this project:
+
+- Data must be grabbed from Twitter on a near-real time basis. Tweets from last month are much less relevant than tweets from the last hour.
+- The data should be easily accessible to anyone. Due to the small amount of data in this project, we will just store it on Github for the sake of simplicity.
+- Credentials should be securely stored in the cloud.
+- The project should be completely free.
+
+While Twitter does have a freely accessible API, there are some usage limits that you must adhere to. Due to the volume of data on the platform, you cannot make a request like this:
 
 > Get all tweets from *User X*.
 
 Instead, the following approach must be taken:
 
 > Get a small number of tweets from *User X*, that meet certain conditions, that have occured *after Date Y* or *since the last tweet we retrieved from User X.*
-
-Additionally, here are some constraints I decided upon for this project:
-
-- Data must be grabbed from Twitter on a near-real time basis. Tweets from last month are much less relevant than tweets from the last hour.
-- The data should be easily accessible to anyone. Due to the small amount of data in this project, we will just store it on Github for the sake of simplicity.
-- Credentials should be securely stored in the cloud.
-- The project should be completely free.
 
 Before beginning, you must gain access to the Twitter API by signing up for the [Twitter Developer Platform](https://developer.twitter.com/en/docs/twitter-api). Once you have been accepted, create an Application with Read/Write access, and make sure to securely store your Consumer Key, Consumer Secret, Access Token, and Access Token Secret. 
 
@@ -74,7 +74,7 @@ There are three main files that make this project work:
 3. **workflow.yml**: YML file defining our main Github Action to run scrape.py.
 4. **decrypt_secret.sh**: Shell script used to decrypt the API credentials.
 
-## scrape.py
+### scrape.py
 
 The main function of this script can be seen here:
 
@@ -132,13 +132,16 @@ This program can be broken down into the following steps:
    usernames = ["realDonaldTrump", "JoeBiden"]
    ```
 
+   
+
 3. **Fetch tweets, using existing data a starting point.**
 
    As mentioned before, there are limits on the Twitter API that we must adhere to. In order to avoid fetching unnecessary data, we will do the following:
 
    - Fetch a chunk of tweets from a user.
+
    - Grab the id of the most recent tweet in that chunk, and store it in a JSON file.
-   - Next time we fetch tweets for the user, reference this id as a stopping point.
+   - After some period of time, call the Twitter API referencing the above ID as a starting point. If there are new tweets, grab them. If not, move on.
 
    ```python
    def get_last_tweet_ids():
@@ -192,9 +195,9 @@ This program can be broken down into the following steps:
      upload_tweets(processed_tweets, file_path)
    ```
 
-   
-
 5. **Update the 'last tweet ids' file.**
+
+   The last step in the primary script is to update the `most_recent_tweet_id.json` file with the newest tweets that we have collected:
 
    ```python
    def update_last_tweet_ids(last_tweet_ids):
@@ -204,13 +207,88 @@ This program can be broken down into the following steps:
    update_last_tweet_ids(last_tweet_ids)
    ```
 
-   
+At this point, we can see the overall functionality of the program. Two details remain: scheduling the program, and securely storing our credentials.
 
-At this point, we see the overall logic of the program. Two details remain: scheduling the job, and securely accessing the Twitter API.
+### workflow.yml
 
-## workflow.yml
+Scheduling our program to run is very easy with Github Actions. To begin, create a `.github` directory in the root folder of the project, and then create a folder called `workflows`. Anything in this folder will be considered an Action by Github. Our directory has a file called `workflow.yml`, which I will walk through briefly here. I have added comments for clarity, as the syntax of this file may be unfamiliar to many.
 
-## decrypt_secret.sh
+First, we will set our schedule to run this action on an hourly cadence:
+
+```yaml
+# Name of the workflow.
+name: Fetch New Tweets
+
+# Event that triggers workflow.
+on:
+  schedule:
+  	# How often to run the workflow.
+    - cron: '0 * * * *'
+```
+
+Next, we need to define our 'job', giving it a name and stating what type of machine it should run on:
+
+```yaml
+jobs:
+  collect-data-job:
+    name: Fetch New Tweets
+    runs-on: ubuntu-18.04
+```
+
+The rest of `workflow.yml` consists of defining small steps to define the actions we want this machine to perform.
+
+```yaml
+steps:
+			# Checkout a fresh version of the project.
+      - name: Checkout Repository.
+        uses: actions/checkout@v2
+```
+
+```yaml
+      # Configure Python. 
+      - name: Setup Python 3.7.
+              uses: actions/setup-python@v2
+              with:
+                python-version: '3.7'
+```
+
+```yaml
+      # Decrypt our API creds. 
+      - name: Decrypt Secrets file.
+              run: ./.github/scripts/decrypt_secret.sh
+              env:
+                SECRET_PASSPHRASE: ${{ secrets.SECRET_PASSPHRASE }}
+```
+
+```yaml
+      # Install needed packages, and run scrape.py, passing in API creds. 
+      - name: Install dependencies and run script.
+              run: |
+                python -m pip install --upgrade pip
+                pip install -r requirements.txt
+                python scrape.py
+              env:
+                CONSUMER_KEY: ${{ secrets.CONSUMER_KEY }}
+                CONSUMER_SECRET: ${{ secrets.CONSUMER_SECRET }}
+                ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+                ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
+```
+
+```yaml
+      # If any new data was fetched, create a new commit to the repo. 
+      - name: Commit data to repo.
+              run: |
+                git config --global user.email "joshkraft757@gmail.com"
+                git config --global user.name "Josh Kraft"
+                git add -A
+                timestamp=$(date -u)
+                git commit -m "Latest data: ${timestamp}" || exit 0
+                git push
+```
+
+### decrypt_secret.sh
+
+In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can tell, this is the best workflow for securely access API credentials (or any credentials for that matter) from a Github Action. Here is what the process for getting this up and running looks like:
 
 
 
