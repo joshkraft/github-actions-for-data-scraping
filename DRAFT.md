@@ -288,7 +288,52 @@ steps:
 
 ### decrypt_secret.sh
 
-In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can tell, this is the best workflow for securely access API credentials (or any credentials for that matter) from a Github Action. Here is what the process for getting this up and running looks like:
+In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can tell, this is the best workflow for securely accessing API credentials (or any credentials for that matter) from a Github Action:
+
+1. Store your credentials in a file, locally. For example, this project originally had a file like this, `secrets.json`:
+
+   ```json
+   {
+       "API_KEY": "KSMdwErGfjr4T5G25vDtE4o1u",
+       "API_SECRET": "khfQottTJZQ3zwsgj12ltDj2Ycn5DZnmnhxQy46vNp12dIshF7",
+       "ACCESS_TOKEN": "980953835723280384-KDkJsMR7OwS2sdffMxeEk4BLlzghUPT",
+       "ACCESS_SECRET": "LcU62QbxfvTsnp675829eTvfmRaI0VuG2TNtAHN6tcizJ"
+   }
+   ```
+
+2. Run the following command in a terminal to encrypt the file using `gpg`:
+
+   ```bash
+   $ gpg --symmetric --cipher-algo AES256 secrets.json
+   ```
+
+   You will need to supply a password at this point.
+
+3. Notice that you know have a file named `secrets.json.gpg`. This is the encrypted file, and can only be decrypted with the password. Add this to your project, and push it to Github. **Note:** be sure not to accidentally push your unencrypted `secrets.json` to Github as well!
+
+4. Head on over to Github and create a Secret named SECRET_PASSPHRASE. Enter the password from Step 2.
+
+5. Now, go ahead and create the `decrypt_secret.sh`file in `.github/scripts/`. The contents of my file look like this:
+
+   ```shell
+   # Decrypt the file
+   mkdir $HOME/secrets
+   echo $HOME
+   gpg --quiet --batch --yes --decrypt --passphrase="$SECRET_PASSPHRASE" \
+   --output $HOME/secrets/secrets.json secrets.json.gpg
+   ```
+
+   The last line is the important - we are saying to decrypt our  `secrets.json.gpg` file, using the `SECRET_PASSPHRASE` stored in Github, and then output it to a file called `secrets.json`on whatever virtual machine that gets utilized when our workflow is run.
+
+   > Note: you might recoginize this as the filepath we passed in to our `authenticate_with_secrets()` function earlier: 
+   >
+   > **/home/runner/secrets/secrets.json**
+   >
+   > If you change the instructions in your shell file, be sure to pass the right path in to your authentication function.  
+
+   
+
+
 
 
 
