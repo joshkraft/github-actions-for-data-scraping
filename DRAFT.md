@@ -1,11 +1,27 @@
-# How to Use Github Actions for Data Collection
+\---
+
+title: "How to Use Github Actions for Data Collection"
+
+description: "Github Actions as a tool for small-scale data collection projects."
+
+layout: post
+
+toc: true
+
+comments: true
+
+image: 
+
+hide: false
+
+search_exclude: true
+
+categories: data collection
+
+\---
 
 > **Summary**
 > In this blogpost, I will outline why **Github Actions can be useful for small-scale data collection projects**, by offering a free way to repeatedly run small data collection scripts in the cloud and push the data into a repository. Then, I will walk through how this tool can be used for **scraping Twitter data**, including how to **securely store API credentials** in Github.
-
-[TOC]
-
-
 
 ## Motivation
 
@@ -57,7 +73,7 @@ The first step in this project is to start collecting the tweets in a repository
 - Credentials should be securely stored in the cloud.
 - The project should be completely free.
 
-While Twitter does have a freely accessible API, there are some usage limits that you must adhere to. Due to the volume of data on the platform, you cannot make a request like this:
+While Twitter does have a freely available API, there are some usage limits that you must adhere to. Due to the volume of data on the platform, you cannot make a request like this:
 
 > Get all tweets from *User X*.
 
@@ -67,7 +83,7 @@ Instead, the following approach must be taken:
 
 Before beginning, you must gain access to the Twitter API by signing up for the [Twitter Developer Platform](https://developer.twitter.com/en/docs/twitter-api). Once you have been accepted, create an Application with Read/Write access, and make sure to securely store your Consumer Key, Consumer Secret, Access Token, and Access Token Secret. 
 
-There are three main files that make this project work:
+There are four main files that make this project work:
 
 1. **scrape.py**: Python script performs the actual data collection.
 2. **most_recent_tweet_id.json**: Stores the last retrieved Tweet ID for each user.
@@ -197,7 +213,7 @@ This program can be broken down into the following steps:
 
 5. **Update the 'last tweet ids' file.**
 
-   The last step in the primary script is to update the `most_recent_tweet_id.json` file with the newest tweets that we have collected:
+   The last step in the primary script is to update the `most_recent_tweet_id.json` file with the most recent tweet that we collected for each user:
 
    ```python
    def update_last_tweet_ids(last_tweet_ids):
@@ -207,13 +223,22 @@ This program can be broken down into the following steps:
    update_last_tweet_ids(last_tweet_ids)
    ```
 
-At this point, we can see the overall functionality of the program. Two details remain: scheduling the program, and securely storing our credentials.
+   For reference, the `most_recent_tweet_id.json` file would look something like this:
+
+   ```json
+   {
+     "realDonaldTrump": "1325067488695099397", 
+     "JoeBiden": "1324926298762870785"
+   }
+   ```
+
+To see the entire scrape.py file, you can see [the latest version here](https://github.com/joshkraft/daily-candidate-tweets/blob/main/scrape.py). At this point, we can see the overall functionality of the program. Two details remain: scheduling the program, and securely storing our credentials.
 
 ### workflow.yml
 
-Scheduling our program to run is very easy with Github Actions. To begin, create a `.github` directory in the root folder of the project, and then create a folder called `workflows`. Anything in this folder will be considered an Action by Github. Our directory has a file called `workflow.yml`, which I will walk through briefly here. I have added comments for clarity, as the syntax of this file may be unfamiliar to many.
+Scheduling our program to run is very easy with Github Actions. To begin, create a `.github` folder in the root folder of the project, and then create a folder called `workflows`within `.github`. Anything in this folder will be considered an Action by Github. Our directory has a file called `workflow.yml`, which I will walk through briefly here. I have added comments for clarity, as the syntax of this file may be unfamiliar.
 
-First, we will set our schedule to run this action on an hourly cadence:
+First, we will set the schedule to run this action on an hourly cadence:
 
 ```yaml
 # Name of the workflow.
@@ -235,10 +260,10 @@ jobs:
     runs-on: ubuntu-18.04
 ```
 
-The rest of `workflow.yml` consists of defining small steps to define the actions we want this machine to perform.
+The rest of `workflow.yml` consists of defining small steps to define the actions we want this machine to perform:
 
 ```yaml
-steps:
+		steps:
 			# Checkout a fresh version of the project.
       - name: Checkout Repository.
         uses: actions/checkout@v2
@@ -253,7 +278,7 @@ steps:
 ```
 
 ```yaml
-      # Decrypt our API creds. 
+      # Decrypt our API credentials. 
       - name: Decrypt Secrets file.
               run: ./.github/scripts/decrypt_secret.sh
               env:
@@ -261,7 +286,7 @@ steps:
 ```
 
 ```yaml
-      # Install needed packages, and run scrape.py, passing in API creds. 
+      # Install needed packages, and run scrape.py, passing in API credentials. 
       - name: Install dependencies and run script.
               run: |
                 python -m pip install --upgrade pip
@@ -309,9 +334,9 @@ In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can
 
    You will need to supply a password at this point.
 
-3. Notice that you know have a file named `secrets.json.gpg`. This is the encrypted file, and can only be decrypted with the password. Add this to your project, and push it to Github. **Note:** be sure not to accidentally push your unencrypted `secrets.json` to Github as well!
+3. Notice that you now have a file named `secrets.json.gpg`. This is the encrypted file, and can only be decrypted with the password. Add this to your project, and push it to Github. **Note:** be sure not to accidentally push your unencrypted `secrets.json` to Github as well!
 
-4. Head on over to Github and create a Secret named SECRET_PASSPHRASE. Enter the password from Step 2.
+4. Head over to Github and create a Secret named SECRET_PASSPHRASE. Enter the password from Step 2.
 
 5. Now, go ahead and create the `decrypt_secret.sh`file in `.github/scripts/`. The contents of my file look like this:
 
@@ -323,7 +348,7 @@ In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can
    --output $HOME/secrets/secrets.json secrets.json.gpg
    ```
 
-   The last line is the important - we are saying to decrypt our  `secrets.json.gpg` file, using the `SECRET_PASSPHRASE` stored in Github, and then output it to a file called `secrets.json`on whatever virtual machine that gets utilized when our workflow is run.
+   The last line is the important - we are saying to decrypt our  `secrets.json.gpg` file, using the `SECRET_PASSPHRASE` stored in Github, and then output it to a file called `secrets.json`on the virtual machine that gets utilized when our workflow is run.
 
    > Note: you might recoginize this as the filepath we passed in to our `authenticate_with_secrets()` function earlier: 
    >
@@ -331,40 +356,6 @@ In Step 3 above, we reference a file called `decrypt_secret.sh`. So far as I can
    >
    > If you change the instructions in your shell file, be sure to pass the right path in to your authentication function.  
 
-   
+## Conclusion
 
-
-
-
-
-
-
-
-
-
-
-
-
-For now, you can set the `secret_filepath` to whatever you would like. However, it is important to note that this code will eventually be running on a Github server so you will need to update it accordingly once local developement is done.
-
-One important limitation of the Twitter API is the inability to grab a users tweet from more than 7 days ago. As such, I have decided to store the 'most recently retrieved tweet ID' for each user in a separate JSON file. Each hour, we will poll the Twitter API and see if there are any tweets with a more recent ID for that user. If there are, we will grab those tweets and then update the JSON file to reflect the newest ID. In this case, here is what our JSON file would look like:
-
-```json
-{
-  "realDonaldTrump": "1324401527663058944", 
-  "JoeBiden": "1324445128434438145"
-}
-```
-
-To set these IDs, you can visit any tweet from a given user in the past 7 days, and extract it from the end of the URL. For example, a tweet from the @realDonaldTrump account would have the following URL:
-
-https://twitter.com/realDonaldTrump/status/**1324401527663058944**
-
-To open this file, we will define a simple function:
-
-```python
-def get_last_tweet_ids():
-    with open("most_recent_tweet_id.json", "r") as file:
-        return json.load(file)
-```
-
+In this post, I explained why Github Actions can be a useful tool for small-scale data collection projects. If your goals are to collect small amounts of data, on a regular basis, there are not many other cloud options that can compete with the simplicity and low cost of Github Actions. 
